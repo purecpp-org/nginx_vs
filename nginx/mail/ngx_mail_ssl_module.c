@@ -11,7 +11,7 @@
 
 
 #define NGX_DEFAULT_CIPHERS     "HIGH:!aNULL:!MD5"
-#define NGX_DEFAULT_ECDH_CURVE  "auto"
+#define NGX_DEFAULT_ECDH_CURVE  "prime256v1"
 
 
 static void *ngx_mail_ssl_create_conf(ngx_conf_t *cf);
@@ -73,16 +73,16 @@ static ngx_command_t  ngx_mail_ssl_commands[] = {
 
     { ngx_string("ssl_certificate"),
       NGX_MAIL_MAIN_CONF|NGX_MAIL_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_array_slot,
+      ngx_conf_set_str_slot,
       NGX_MAIL_SRV_CONF_OFFSET,
-      offsetof(ngx_mail_ssl_conf_t, certificates),
+      offsetof(ngx_mail_ssl_conf_t, certificate),
       NULL },
 
     { ngx_string("ssl_certificate_key"),
       NGX_MAIL_MAIN_CONF|NGX_MAIL_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_array_slot,
+      ngx_conf_set_str_slot,
       NGX_MAIL_SRV_CONF_OFFSET,
-      offsetof(ngx_mail_ssl_conf_t, certificate_keys),
+      offsetof(ngx_mail_ssl_conf_t, certificate_key),
       NULL },
 
     { ngx_string("ssl_password_file"),
@@ -238,6 +238,8 @@ ngx_mail_ssl_create_conf(ngx_conf_t *cf)
      * set by ngx_pcalloc():
      *
      *     scf->protocols = 0;
+     *     scf->certificate = { 0, NULL };
+     *     scf->certificate_key = { 0, NULL };
      *     scf->dhparam = { 0, NULL };
      *     scf->ecdh_curve = { 0, NULL };
      *     scf->client_certificate = { 0, NULL };
@@ -249,8 +251,6 @@ ngx_mail_ssl_create_conf(ngx_conf_t *cf)
 
     scf->enable = NGX_CONF_UNSET;
     scf->starttls = NGX_CONF_UNSET_UINT;
-    scf->certificates = NGX_CONF_UNSET_PTR;
-    scf->certificate_keys = NGX_CONF_UNSET_PTR;
     scf->passwords = NGX_CONF_UNSET_PTR;
     scf->prefer_server_ciphers = NGX_CONF_UNSET;
     scf->verify = NGX_CONF_UNSET_UINT;
@@ -290,9 +290,8 @@ ngx_mail_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_uint_value(conf->verify, prev->verify, 0);
     ngx_conf_merge_uint_value(conf->verify_depth, prev->verify_depth, 1);
 
-    ngx_conf_merge_ptr_value(conf->certificates, prev->certificates, NULL);
-    ngx_conf_merge_ptr_value(conf->certificate_keys, prev->certificate_keys,
-                         NULL);
+    ngx_conf_merge_str_value(conf->certificate, prev->certificate, "");
+    ngx_conf_merge_str_value(conf->certificate_key, prev->certificate_key, "");
 
     ngx_conf_merge_ptr_value(conf->passwords, prev->passwords, NULL);
 
@@ -329,7 +328,7 @@ ngx_mail_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
     if (*mode) {
 
-        if (conf->certificates == NULL) {
+        if (conf->certificate.len == 0) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                           "no \"ssl_certificate\" is defined for "
                           "the \"%s\" directive in %s:%ui",
@@ -337,7 +336,7 @@ ngx_mail_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
             return NGX_CONF_ERROR;
         }
 
-        if (conf->certificate_keys == NULL) {
+        if (conf->certificate_key.len == 0) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                           "no \"ssl_certificate_key\" is defined for "
                           "the \"%s\" directive in %s:%ui",
@@ -345,31 +344,17 @@ ngx_mail_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
             return NGX_CONF_ERROR;
         }
 
-        if (conf->certificate_keys->nelts < conf->certificates->nelts) {
-            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
-                          "no \"ssl_certificate_key\" is defined "
-                          "for certificate \"%V\" and "
-                          "the \"ssl\" directive in %s:%ui",
-                          ((ngx_str_t *) conf->certificates->elts)
-                          + conf->certificates->nelts - 1,
-                          conf->file, conf->line);
-            return NGX_CONF_ERROR;
-        }
-
     } else {
 
-        if (conf->certificates == NULL) {
+        if (conf->certificate.len == 0) {
             return NGX_CONF_OK;
         }
 
-        if (conf->certificate_keys == NULL
-            || conf->certificate_keys->nelts < conf->certificates->nelts)
-        {
+        if (conf->certificate_key.len == 0) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                           "no \"ssl_certificate_key\" is defined "
                           "for certificate \"%V\"",
-                          ((ngx_str_t *) conf->certificates->elts)
-                          + conf->certificates->nelts - 1);
+                          &conf->certificate);
             return NGX_CONF_ERROR;
         }
     }
@@ -386,8 +371,8 @@ ngx_mail_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     cln->handler = ngx_ssl_cleanup_ctx;
     cln->data = &conf->ssl;
 
-    if (ngx_ssl_certificates(cf, &conf->ssl, conf->certificates,
-                             conf->certificate_keys, conf->passwords)
+    if (ngx_ssl_certificate(cf, &conf->ssl, &conf->certificate,
+                            &conf->certificate_key, conf->passwords)
         != NGX_OK)
     {
         return NGX_CONF_ERROR;

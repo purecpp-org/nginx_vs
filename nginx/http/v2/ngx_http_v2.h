@@ -46,9 +46,6 @@
 #define NGX_HTTP_V2_PADDED_FLAG          0x08
 #define NGX_HTTP_V2_PRIORITY_FLAG        0x20
 
-#define NGX_HTTP_V2_MAX_WINDOW           ((1U << 31) - 1)
-#define NGX_HTTP_V2_DEFAULT_WINDOW       65535
-
 
 typedef struct ngx_http_v2_connection_s   ngx_http_v2_connection_t;
 typedef struct ngx_http_v2_node_s         ngx_http_v2_node_t;
@@ -176,8 +173,6 @@ struct ngx_http_v2_stream_s {
      */
     ssize_t                          send_window;
     size_t                           recv_window;
-
-    ngx_buf_t                       *preread;
 
     ngx_http_v2_out_frame_t         *free_frames;
     ngx_chain_t                     *free_frame_headers;

@@ -1,4 +1,4 @@
-#define NGX_CONFIGURE " --with-cc=cl --with-ipv6 --with-http_ssl_module --with-http_v2_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_auth_request_module --without-http_rewrite_module --with-openssl=D:\\usr\\local\\ssl --with-zlib=D:\\Project\\zlib-1.2.8"
+#define NGX_CONFIGURE " --prefix= --with-cc-opt=-DFD_SETSIZE=1024 --with-cc=cl --with-ipv6 --with-http_ssl_module --with-http_v2_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_auth_request_module --with-zlib=D:/Project/zlib-1.2.8 --with-openssl=D:/openssl-1.0.1s --without-http_rewrite_module"
 
 #ifndef NGX_COMPILER
 #define NGX_COMPILER  "cl "
@@ -117,11 +117,6 @@
 
 #ifndef NGX_ZLIB
 #define NGX_ZLIB  1
-#endif
-
-
-#ifndef NGX_PREFIX
-#define NGX_PREFIX  ".\\"
 #endif
 
 

@@ -29,7 +29,7 @@ typedef struct {
     ngx_connection_t                  *connection;
 
     socklen_t                          socklen;
-    ngx_sockaddr_t                     sockaddr;
+    u_char                             sockaddr[NGX_SOCKADDRLEN];
 
 } ngx_http_upstream_keepalive_cache_t;
 

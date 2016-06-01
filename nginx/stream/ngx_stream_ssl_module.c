@@ -11,7 +11,7 @@
 
 
 #define NGX_DEFAULT_CIPHERS     "HIGH:!aNULL:!MD5"
-#define NGX_DEFAULT_ECDH_CURVE  "auto"
+#define NGX_DEFAULT_ECDH_CURVE  "prime256v1"
 
 
 static void *ngx_stream_ssl_create_conf(ngx_conf_t *cf);
@@ -45,16 +45,16 @@ static ngx_command_t  ngx_stream_ssl_commands[] = {
 
     { ngx_string("ssl_certificate"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_array_slot,
+      ngx_conf_set_str_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
-      offsetof(ngx_stream_ssl_conf_t, certificates),
+      offsetof(ngx_stream_ssl_conf_t, certificate),
       NULL },
 
     { ngx_string("ssl_certificate_key"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_array_slot,
+      ngx_conf_set_str_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
-      offsetof(ngx_stream_ssl_conf_t, certificate_keys),
+      offsetof(ngx_stream_ssl_conf_t, certificate_key),
       NULL },
 
     { ngx_string("ssl_password_file"),
@@ -175,6 +175,8 @@ ngx_stream_ssl_create_conf(ngx_conf_t *cf)
      * set by ngx_pcalloc():
      *
      *     scf->protocols = 0;
+     *     scf->certificate = { 0, NULL };
+     *     scf->certificate_key = { 0, NULL };
      *     scf->dhparam = { 0, NULL };
      *     scf->ecdh_curve = { 0, NULL };
      *     scf->ciphers = { 0, NULL };
@@ -182,8 +184,6 @@ ngx_stream_ssl_create_conf(ngx_conf_t *cf)
      */
 
     scf->handshake_timeout = NGX_CONF_UNSET_MSEC;
-    scf->certificates = NGX_CONF_UNSET_PTR;
-    scf->certificate_keys = NGX_CONF_UNSET_PTR;
     scf->passwords = NGX_CONF_UNSET_PTR;
     scf->prefer_server_ciphers = NGX_CONF_UNSET;
     scf->builtin_session_cache = NGX_CONF_UNSET;
@@ -216,9 +216,8 @@ ngx_stream_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
                          (NGX_CONF_BITMASK_SET|NGX_SSL_TLSv1
                           |NGX_SSL_TLSv1_1|NGX_SSL_TLSv1_2));
 
-    ngx_conf_merge_ptr_value(conf->certificates, prev->certificates, NULL);
-    ngx_conf_merge_ptr_value(conf->certificate_keys, prev->certificate_keys,
-                         NULL);
+    ngx_conf_merge_str_value(conf->certificate, prev->certificate, "");
+    ngx_conf_merge_str_value(conf->certificate_key, prev->certificate_key, "");
 
     ngx_conf_merge_ptr_value(conf->passwords, prev->passwords, NULL);
 
@@ -232,18 +231,15 @@ ngx_stream_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
     conf->ssl.log = cf->log;
 
-    if (conf->certificates == NULL) {
+    if (conf->certificate.len == 0) {
         return NGX_CONF_OK;
     }
 
-    if (conf->certificate_keys == NULL
-        || conf->certificate_keys->nelts < conf->certificates->nelts)
-    {
+    if (conf->certificate_key.len == 0) {
         ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                       "no \"ssl_certificate_key\" is defined "
                       "for certificate \"%V\"",
-                      ((ngx_str_t *) conf->certificates->elts)
-                      + conf->certificates->nelts - 1);
+                      &conf->certificate);
         return NGX_CONF_ERROR;
     }
 
@@ -259,8 +255,8 @@ ngx_stream_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     cln->handler = ngx_ssl_cleanup_ctx;
     cln->data = &conf->ssl;
 
-    if (ngx_ssl_certificates(cf, &conf->ssl, conf->certificates,
-                             conf->certificate_keys, conf->passwords)
+    if (ngx_ssl_certificate(cf, &conf->ssl, &conf->certificate,
+                            &conf->certificate_key, conf->passwords)
         != NGX_OK)
     {
         return NGX_CONF_ERROR;

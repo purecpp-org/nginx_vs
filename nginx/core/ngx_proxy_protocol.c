@@ -12,9 +12,8 @@
 u_char *
 ngx_proxy_protocol_read(ngx_connection_t *c, u_char *buf, u_char *last)
 {
-    size_t     len;
-    u_char     ch, *p, *addr, *port;
-    ngx_int_t  n;
+    size_t  len;
+    u_char  ch, *p, *addr;
 
     p = buf;
     len = last - buf;
@@ -72,40 +71,8 @@ ngx_proxy_protocol_read(ngx_connection_t *c, u_char *buf, u_char *last)
     ngx_memcpy(c->proxy_protocol_addr.data, addr, len);
     c->proxy_protocol_addr.len = len;
 
-    for ( ;; ) {
-        if (p == last) {
-            goto invalid;
-        }
-
-        if (*p++ == ' ') {
-            break;
-        }
-    }
-
-    port = p;
-
-    for ( ;; ) {
-        if (p == last) {
-            goto invalid;
-        }
-
-        if (*p++ == ' ') {
-            break;
-        }
-    }
-
-    len = p - port - 1;
-
-    n = ngx_atoi(port, len);
-
-    if (n < 0 || n > 65535) {
-        goto invalid;
-    }
-
-    c->proxy_protocol_port = (in_port_t) n;
-
-    ngx_log_debug2(NGX_LOG_DEBUG_CORE, c->log, 0,
-                   "PROXY protocol address: %V %i", &c->proxy_protocol_addr, n);
+    ngx_log_debug1(NGX_LOG_DEBUG_CORE, c->log, 0,
+                   "PROXY protocol address: \"%V\"", &c->proxy_protocol_addr);
 
 skip:
 
